@@ -690,6 +690,7 @@ contract Ownable is Context {
 pragma solidity ^0.6.0;
 
 interface TRUSTMOON {
+    function transfer(address recipient, uint256 amount) external returns (bool);
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
     function balanceOf(address account) external view returns (uint256);
 }
@@ -703,6 +704,8 @@ contract TokenPresale is Ownable {
     
     uint256 public totalDepositedBNBBalance;
     uint256 public rewardTokenCount;
+    
+    uint public referralFeePercent = 5;
     
     bool public presaleStatus;
 
@@ -719,26 +722,30 @@ contract TokenPresale is Ownable {
     }
 
     receive() payable external {
-        deposit();
+        //deposit();
     }
     
     function balanceOf(address account) public view returns (uint256) {
         return token.balanceOf(account);
     }
 
-    function deposit() public payable {
+    function deposit(address inviterAddress) public payable {
         require(presaleStatus == true, "Presale : Presale is finished");
         require(msg.value >= 1 * 1e17, "Presale : Unsuitable Amount");
-        require(msg.value <= 2 * 1e18, "Presale : Unsuitable Amount");
+        require(msg.value <= 20 * 1e18, "Presale : Unsuitable Amount");
         
-        
-        uint256 tokenAmount = msg.value.div(1e9).mul(rewardTokenCount);
-        
-        token.transferFrom(mainWallet, msg.sender, tokenAmount);
+        uint256 tokenAmount = msg.value.div(1e18).mul(rewardTokenCount);
+
+        uint256 tokenForInviter = 0;
+        tokenForInviter = tokenAmount.mul(referralFeePercent).div(100);
+        token.transfer(inviterAddress, tokenForInviter);
+        uint256 tokenForBuyer = tokenAmount - tokenForInviter;
+        token.transfer(msg.sender, tokenForBuyer);
         
         totalDepositedBNBBalance = totalDepositedBNBBalance.add(msg.value);
         deposits[msg.sender] = deposits[msg.sender].add(msg.value);
         emit Deposited(msg.sender, msg.value);
+        
     }
     
     function releaseFunds() external onlyOwner {
@@ -754,6 +761,10 @@ contract TokenPresale is Ownable {
 
     function setWithdrawAddress(address payable _address) external onlyOwner {
         mainWallet = _address;
+    }
+    
+    function setReferralFeePercent(uint256 _percent) external onlyOwner {
+        referralFeePercent = _percent;
     }
     
     function setRewardTokenCount(uint256 _count) external onlyOwner {
